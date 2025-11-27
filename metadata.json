@@ -1,0 +1,5 @@
+{
+  "name": "Probabilidade.AI - Auto Grader",
+  "description": "Sistema de correção automática de provas de probabilidade com estética Cyberpunk/Terminal. Utiliza IA para analisar raciocínio lógico e conceder créditos parciais.",
+  "requestFramePermissions": []
+}
