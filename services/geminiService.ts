@@ -31,18 +31,53 @@ export const gradeStudent = async (
   // Prepare parts
   const parts: any[] = [];
 
-  // 1. Add Context (Knowledge Base & Answer Key)
-  for (const file of [...knowledgeBase, ...answerKey]) {
-    const base64 = await getBase64(file);
-    parts.push({
-      inlineData: {
-        data: base64,
-        mimeType: file.type
-      }
+  // 1. Add Knowledge Base (Study Material/Reference Content)
+  if (knowledgeBase.length > 0) {
+    parts.push({ 
+      text: "=== INÍCIO DA BASE DE CONHECIMENTO (MATERIAL DE REFERÊNCIA PARA ESTUDO) ===" 
+    });
+    
+    for (const file of knowledgeBase) {
+      const base64 = await getBase64(file);
+      parts.push({
+        inlineData: {
+          data: base64,
+          mimeType: file.type
+        }
+      });
+    }
+    
+    parts.push({ 
+      text: "=== FIM DA BASE DE CONHECIMENTO ===\n\n" 
     });
   }
 
-  // 2. Add Student Exam Images
+  // 2. Add Answer Key (Official Grading Rubric)
+  if (answerKey.length > 0) {
+    parts.push({ 
+      text: "=== INÍCIO DO GABARITO OFICIAL (CRITÉRIOS DE CORREÇÃO) ===" 
+    });
+    
+    for (const file of answerKey) {
+      const base64 = await getBase64(file);
+      parts.push({
+        inlineData: {
+          data: base64,
+          mimeType: file.type
+        }
+      });
+    }
+    
+    parts.push({ 
+      text: "=== FIM DO GABARITO OFICIAL ===\n\n" 
+    });
+  }
+
+  // 3. Add Student Exam (To Be Graded)
+  parts.push({ 
+    text: "=== INÍCIO DA PROVA DO ALUNO (RESPOSTAS A SEREM CORRIGIDAS) ===" 
+  });
+  
   for (const file of student.examFiles) {
     const base64 = await getBase64(file);
     parts.push({
@@ -52,19 +87,58 @@ export const gradeStudent = async (
       }
     });
   }
+  
+  parts.push({ 
+    text: "=== FIM DA PROVA DO ALUNO ===\n\n" 
+  });
 
-  // 3. Add Prompt
+  // 4. Add Detailed Prompt
   const prompt = `
-    Analise a prova do aluno abaixo com base nos documentos de contexto (Base de Conhecimento e Gabarito).
-    
-    Nome do Aluno: ${student.name}
-    Matrícula: ${student.matricula}
-    
-    Identifique as questões, compare com o gabarito, aplique a lógica de crédito parcial e gere o relatório JSON seguindo estritamente o schema fornecido.
-    Se não houver identificação clara do número da questão, infira pelo contexto.
+INSTRUÇÕES DE CORREÇÃO:
+
+📚 DOCUMENTOS FORNECIDOS (NESTA ORDEM):
+1. BASE DE CONHECIMENTO: Material de referência/estudo (NÃO É A PROVA)
+2. GABARITO OFICIAL: Respostas corretas e critérios de pontuação (NÃO É A PROVA)
+3. PROVA DO ALUNO: Respostas escritas pelo aluno (ESTE É O DOCUMENTO A SER CORRIGIDO)
+
+⚠️ ATENÇÃO: Você deve corrigir APENAS as respostas da PROVA DO ALUNO comparando com o GABARITO OFICIAL.
+A Base de Conhecimento serve apenas como contexto adicional para entender o conteúdo.
+
+👤 DADOS DO ALUNO:
+- Nome: ${student.name}
+- Matrícula: ${student.matricula}
+
+📋 PROCESSO DE CORREÇÃO:
+
+1. IDENTIFICAÇÃO DAS QUESTÕES:
+   - Localize cada questão na prova do aluno pela numeração (ex: "Q1", "1)", "Questão 2")
+   - Se não houver numeração explícita, use a ordem sequencial
+   - Identifique onde começa e termina cada resposta
+
+2. CORREÇÃO E PONTUAÇÃO:
+   - Para cada questão, encontre a resposta correspondente no GABARITO OFICIAL
+   - Compare a resposta DO ALUNO com o gabarito
+   - Aplique os critérios de crédito parcial definidos no gabarito
+   - Atribua a nota conforme os critérios estabelecidos
+   - NÃO confunda o gabarito com a prova do aluno
+
+3. COMENTÁRIO DETALHADO:
+   - Explique por que a nota foi atribuída
+   - Aponte erros específicos ou acertos parciais
+   - Seja objetivo e construtivo
+
+4. GERAÇÃO DO RELATÓRIO:
+   - Estruture o JSON exatamente conforme o schema
+   - Inclua TODAS as questões identificadas
+   - Calcule a nota final somando todas as notas atribuídas
+
+📤 SAÍDA ESPERADA:
+Relatório JSON completo seguindo rigorosamente o schema definido.
   `;
 
   parts.push({ text: prompt });
+
+  console.log("Prompt parts prepared:", parts);
 
   // Define schema strictly using Type enum
   const responseSchema: Schema = {
@@ -112,6 +186,8 @@ export const gradeStudent = async (
     text = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
 
     const result = JSON.parse(text) as GradingResult;
+
+
     return result;
 
   } catch (error: any) {
