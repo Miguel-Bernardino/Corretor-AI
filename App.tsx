@@ -233,7 +233,7 @@ export default function App() {
       {/* Terminal Log Output */}
       <div className="bg-black border border-[#39FF14] p-4 font-mono text-xs h-64 overflow-y-auto shadow-[0_0_15px_rgba(57,255,20,0.2)]">
         {state.processingLog.map((log, idx) => (
-          <div key={idx} className="mb-1 text-[#39FF14]">> {log}</div>
+          <div key={idx} className="mb-1 text-[#39FF14]">{'>'} {log}</div>
         ))}
         <div ref={logEndRef} />
       </div>

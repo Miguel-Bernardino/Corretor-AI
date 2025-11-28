@@ -85,7 +85,7 @@ export const FileUpload: React.FC<{
         />
         {fileNames.length > 0 ? (
           <div className="text-[#39FF14] text-sm">
-            {fileNames.map(f => <div key={f}>> {f}</div>)}
+            {fileNames.map(f => <div key={f}>{'>'} {f}</div>)}
           </div>
         ) : (
           <div className="text-gray-500 text-sm group-hover:text-[#00E5FF]">
