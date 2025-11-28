@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StudentData, GradingResult } from "../types";
 import { SYSTEM_INSTRUCTION } from "../constants";
 
@@ -32,14 +32,12 @@ export const gradeStudent = async (
   const parts: any[] = [];
 
   // 1. Add Context (Knowledge Base & Answer Key)
-  // Note: For this implementation, we treat PDFs as image/document data if supported, 
-  // or rely on the model's ability to ingest PDF mime types.
   for (const file of [...knowledgeBase, ...answerKey]) {
     const base64 = await getBase64(file);
     parts.push({
       inlineData: {
         data: base64,
-        mimeType: file.type // 'application/pdf' works with Gemini 1.5/2.5
+        mimeType: file.type
       }
     });
   }
@@ -57,20 +55,45 @@ export const gradeStudent = async (
 
   // 3. Add Prompt
   const prompt = `
-    Analise a prova do aluno abaixo com base nos documentos de contexto (Base de Conhecimento e Gabarito) fornecidos anteriormente.
+    Analise a prova do aluno abaixo com base nos documentos de contexto (Base de Conhecimento e Gabarito).
     
     Nome do Aluno: ${student.name}
     Matrícula: ${student.matricula}
     
-    Identifique as questões, compare com o gabarito, aplique a lógica de crédito parcial e gere o relatório JSON.
+    Identifique as questões, compare com o gabarito, aplique a lógica de crédito parcial e gere o relatório JSON seguindo estritamente o schema fornecido.
     Se não houver identificação clara do número da questão, infira pelo contexto.
   `;
 
   parts.push({ text: prompt });
 
+  // Define schema strictly using Type enum
+  const responseSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      aluno_nome: { type: Type.STRING },
+      matricula: { type: Type.STRING },
+      questoes: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            numero: { type: Type.NUMBER },
+            nota_atribuida: { type: Type.NUMBER },
+            nota_maxima: { type: Type.NUMBER },
+            comentario_ia: { type: Type.STRING },
+          },
+          required: ["numero", "nota_atribuida", "nota_maxima", "comentario_ia"]
+        },
+      },
+      nota_final_total: { type: Type.NUMBER },
+    },
+    required: ["aluno_nome", "matricula", "questoes", "nota_final_total"],
+  };
+
   try {
+    // Upgraded to gemini-3-pro-preview for larger context window (2M tokens) and better reasoning capabilities
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview', 
       contents: {
         role: 'user',
         parts: parts
@@ -78,19 +101,26 @@ export const gradeStudent = async (
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
-        // Using loose schema definition compatible with standard JSON object expectation
-        // Strict schema usage can sometimes be tricky with partial matching, so we rely on system prompt + mimeType
+        responseSchema: responseSchema,
       }
     });
 
-    const text = response.text;
+    let text = response.text;
     if (!text) throw new Error("No response text from AI");
+
+    // Clean up potential Markdown formatting (```json ... ```) that might bypass JSON mode in edge cases
+    text = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
 
     const result = JSON.parse(text) as GradingResult;
     return result;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error grading student:", error);
-    throw error;
+    // Extract meaningful message from GoogleGenAIError if possible
+    let errorMessage = error.message;
+    if (errorMessage.includes("token count exceeds")) {
+      errorMessage = "Contexto muito grande (limite de tokens excedido). Reduza o tamanho da Base de Conhecimento.";
+    }
+    throw new Error(errorMessage);
   }
 };

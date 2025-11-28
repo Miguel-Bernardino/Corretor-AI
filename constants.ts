@@ -10,28 +10,5 @@ Ao analisar as imagens das provas, adote o seguinte comportamento pedagógico:
 3. Aproveitamento de Conteúdo: Tudo que fizer sentido matemático deve ser considerado positivo.
 
 SAÍDA:
-Retorne APENAS um objeto JSON válido. Não use blocos de código markdown.
+Gere a resposta estritamente no formato JSON definido pelo schema. Não inclua Markdown.
 `;
-
-export const RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    aluno_nome: { type: "STRING" },
-    matricula: { type: "STRING" },
-    questoes: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          numero: { type: "NUMBER" },
-          nota_atribuida: { type: "NUMBER" },
-          nota_maxima: { type: "NUMBER" },
-          comentario_ia: { type: "STRING" }
-        },
-        required: ["numero", "nota_atribuida", "nota_maxima", "comentario_ia"]
-      }
-    },
-    nota_final_total: { type: "NUMBER" }
-  },
-  required: ["aluno_nome", "matricula", "questoes", "nota_final_total"]
-};

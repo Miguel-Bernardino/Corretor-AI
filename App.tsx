@@ -107,10 +107,11 @@ export default function App() {
         updatedStudents[i].result = result;
         updatedStudents[i].status = 'completed';
         addLog(`>> SUCESSO: Nota Calculada: ${result.nota_final_total}`);
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
         updatedStudents[i].status = 'error';
-        addLog(`>> ERRO CRÍTICO NO ALUNO ${student.matricula}: Falha na inferência.`);
+        const errorMsg = e.message || "Erro desconhecido";
+        addLog(`>> ERRO CRÍTICO NO ALUNO ${student.matricula}: ${errorMsg}`);
       }
 
       setState(prev => ({ ...prev, students: [...updatedStudents] }));
@@ -233,13 +234,15 @@ export default function App() {
       {/* Terminal Log Output */}
       <div className="bg-black border border-[#39FF14] p-4 font-mono text-xs h-64 overflow-y-auto shadow-[0_0_15px_rgba(57,255,20,0.2)]">
         {state.processingLog.map((log, idx) => (
-          <div key={idx} className="mb-1 text-[#39FF14]">{'>'} {log}</div>
+          <div key={idx} className={`mb-1 ${log.includes("ERRO CRÍTICO") ? "text-red-500 font-bold" : "text-[#39FF14]"}`}>
+            {'>'} {log}
+          </div>
         ))}
         <div ref={logEndRef} />
       </div>
 
       {/* Results Table */}
-      {state.students.some(s => s.status === 'completed') && (
+      {state.students.some(s => s.status === 'completed' || s.status === 'error') && (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -289,7 +292,7 @@ export default function App() {
         </div>
         <div className="text-right hidden md:block">
           <div className="text-[#39FF14] text-xs">SYSTEM: ONLINE</div>
-          <div className="text-[#E6E6E6] text-xs opacity-50">MODE: PROFESSOR</div>
+          <div className="text-[#E6E6E6] text-xs opacity-50">MODE: PROFESSOR (GEMINI 3 PRO)</div>
         </div>
       </header>
 
@@ -320,7 +323,7 @@ export default function App() {
       </main>
       
       <footer className="fixed bottom-4 right-4 text-[10px] text-gray-700 font-mono">
-        POWERED BY GEMINI 2.5 FLASH
+        POWERED BY GEMINI 3 PRO
       </footer>
     </div>
   );
